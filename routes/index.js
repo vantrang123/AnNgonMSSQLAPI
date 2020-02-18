@@ -370,7 +370,7 @@ router.get('/addon', async (req, res, next) => {
 })
 
 //=============
-// ORDER TABLE
+// ORDER AND ORDER DETAIL TABLE
 // GET / POST
 //=============
 
@@ -400,6 +400,34 @@ router.get('/order', async (req, res, next) => {
 			}
 		} else {
 			res.send(JSON.stringify({ susscess: false, message: "Missing orderFBID in query" }));
+		}
+	}
+})
+
+router.get('/orderDetail', async (req, res, next) => {
+	console.log(req.query);
+	if (req.query.key != API_KEY) {
+		res.end(JSON.stringify({ susscess: false, message: "Wrong API key" }));
+	} else {
+		var order_id = req.query.orderId;
+		if (order_id != null) {
+			try {
+				const pool = await poolPromise
+				const queryResult = await pool.request()
+					.input('OrderId', sql.Int, order_id)
+					.query('SELECT orderId,itemId,quantity,discount,extraPrice,size,addOn FROM [OrderDetail] WHERE orderId=@orderId')
+				if (queryResult.recordset.length > 0) {
+					res.send(JSON.stringify({ susscess: true, result: queryResult.recordset }));
+				} else {
+					res.send(JSON.stringify({ susscess: false, message: "Empty" }));
+				}
+			}
+			catch (err) {
+				res.status(500) // Internal Server Error
+				res.send(JSON.stringify({ susscess: false, message: err.message }))
+			}
+		} else {
+			res.send(JSON.stringify({ susscess: false, message: "Missing orderId in query" }));
 		}
 	}
 })
@@ -461,5 +489,73 @@ router.post('/createOrder', async (req, res, next) => {
 		}
 	}
 })
+
+router.post('/updateOrder', async (req, res, next) => {
+	console.log(req.body)
+	if (req.body.key != API_KEY) {
+		res.send(JSON.stringify({ susscess: false, message: "Wrong API key" }));
+	}
+	else {
+		var order_id = req.body.orderId;
+		var order_detail;
+
+		try {
+			order_detail = JSON.parse(req.body.orderDetail);
+		}
+		catch (err) {
+			console.log(err);
+			res.status(500) // Internal Server Error
+			res.send(JSON.stringify({ susscess: false, message: err.message }))
+		}
+
+		if (order_id != null && order_detail != null) {
+			try {
+				const pool = await poolPromise
+				const table = new sql.Table('OrderDetail') // Create virtual table to bulk insert
+				table.create = true
+
+				table.columns.add('OrderId', sql.Int, { nullable: false, primary: true })
+				table.columns.add('ItemId', sql.Int, { nullable: false, primary: true })
+				table.columns.add('Quantity', sql.Int, { nullable: true })
+				table.columns.add('Price', sql.Float, { nullable: true })
+				table.columns.add('Discount', sql.Int, { nullable: true })
+				table.columns.add('Size', sql.NVarChar(50), { nullable: true }) 
+				table.columns.add('Addon', sql.NVarChar(4000), { nullable: true }) 
+				table.columns.add('ExtraPrice', sql.Float, { nullable: true }) 
+
+				for (i = 0; i < order_detail.length; i++) {
+					table.rows.add(order_id,
+						order_detail[i]["foodId"],
+						order_detail[i]["foodQuantity"],
+						order_detail[i]["foodPrice"],
+						order_detail[i]["foodDiscount"],
+						order_detail[i]["foodSize"],
+						order_detail[i]["foodAddon"],
+						parseFloat(order_detail[i]["foodExtraPrice"]),
+
+					)
+				}
+
+				const request = pool.request()
+				request.bulk(table, (err, resultBulk) => {
+					if (err) {
+						console.log(err);
+						res.send(JSON.stringify({ susscess: false, message: err }));
+					} else {
+						res.send(JSON.stringify({ susscess: true, message: "update success" }));
+					}
+				})
+			}
+			catch (err) {
+				res.status(500) // Internal Server Error
+				res.send(JSON.stringify({ susscess: false, message: err.message }))
+			}
+		}
+		else {
+			res.send(JSON.stringify({ susscess: false, message: "Missing orderId or orderDetail in body of POST request" }));
+		}
+	}
+})
+
 
 module.exports = router;
