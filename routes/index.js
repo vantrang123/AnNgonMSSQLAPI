@@ -177,4 +177,34 @@ router.get('/nearbyrestaurant', async (req, res, next) => {
 	}
 })
 
+//=============
+// MENU TABLE
+// GET
+//=============
+
+router.get('/menu', async (req, res, next) => {
+	console.log(req.query);
+	if (req.query.key != API_KEY) {
+		res.end(JSON.stringify({ susscess: false, message: "Wrong API key" }));
+	} else {
+		var restaurant_id = req.query.restaurantId;
+		if (req.query.API_KEY != null) {
+			try {
+				const pool = await poolPromise
+				const queryResult = await pool.request()
+					.query('SELECT id, name, address, phone, lat, lng, userOwner, image, paymentUrl from [Restaurant]')
+				if (queryResult.recordset.length > 0) {
+					res.end(JSON.stringify({ susscess: true, result: queryResult.recordset }));
+				} else {
+					res.end(JSON.stringify({ susscess: false, message: "Empty" }));
+				}
+			}
+			catch (err) {
+				res.status(500) // Internal Server Error
+				res.send(JSON.stringify({ susscess: false, message: err.message }))
+			}
+		}
+	}
+})
+
 module.exports = router;
