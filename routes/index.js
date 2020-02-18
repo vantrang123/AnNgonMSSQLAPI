@@ -419,15 +419,15 @@ router.get('/orderDetail', async (req, res, next) => {
 				if (queryResult.recordset.length > 0) {
 					res.send(JSON.stringify({ susscess: true, result: queryResult.recordset }));
 				} else {
-					res.send(JSON.stringify({ susscess: false, message: "Empty" }));
+					res.send(JSON.stringify({ success: false, message: "Empty" }));
 				}
 			}
 			catch (err) {
 				res.status(500) // Internal Server Error
-				res.send(JSON.stringify({ susscess: false, message: err.message }))
+				res.send(JSON.stringify({ success: false, message: err.message }))
 			}
 		} else {
-			res.send(JSON.stringify({ susscess: false, message: "Missing orderId in query" }));
+			res.send(JSON.stringify({ success: false, message: "Missing orderId in query" }));
 		}
 	}
 })
@@ -435,7 +435,7 @@ router.get('/orderDetail', async (req, res, next) => {
 router.post('/createOrder', async (req, res, next) => {
 	console.log(req.body)
 	if (req.body.key != API_KEY) {
-		res.send(JSON.stringify({ susscess: false, message: "Wrong API key" }));
+		res.send(JSON.stringify({ success: false, message: "Wrong API key" }));
 	}
 	else {
 		var order_phone = req.body.orderPhone;
@@ -473,19 +473,19 @@ router.post('/createOrder', async (req, res, next) => {
 
 
 				if (queryResult.recordset.length > 0) {
-					res.send(JSON.stringify({ susscess: true, result: queryResult.recordset }))
+					res.send(JSON.stringify({ success: true, result: queryResult.recordset }))
 				} else {
-					res.send(JSON.stringify({ susscess: false, message: "Empty" }));
+					res.send(JSON.stringify({ success: false, message: "Empty" }));
 				}
 
 			}
 			catch (err) {
 				res.status(500) // Internal Server Error
-				res.send(JSON.stringify({ susscess: false, message: err.message }))
+				res.send(JSON.stringify({ success: false, message: err.message }))
 			}
 		}
 		else {
-			res.send(JSON.stringify({ susscess: false, message: "Missing order_fbid in body of POST request" }));
+			res.send(JSON.stringify({ success: false, message: "Missing order_fbid in body of POST request" }));
 		}
 	}
 })
@@ -493,7 +493,7 @@ router.post('/createOrder', async (req, res, next) => {
 router.post('/updateOrder', async (req, res, next) => {
 	console.log(req.body)
 	if (req.body.key != API_KEY) {
-		res.send(JSON.stringify({ susscess: false, message: "Wrong API key" }));
+		res.send(JSON.stringify({ success: false, message: "Wrong API key" }));
 	}
 	else {
 		var order_id = req.body.orderId;
@@ -505,7 +505,7 @@ router.post('/updateOrder', async (req, res, next) => {
 		catch (err) {
 			console.log(err);
 			res.status(500) // Internal Server Error
-			res.send(JSON.stringify({ susscess: false, message: err.message }))
+			res.send(JSON.stringify({ success: false, message: err.message }))
 		}
 
 		if (order_id != null && order_detail != null) {
@@ -540,22 +540,161 @@ router.post('/updateOrder', async (req, res, next) => {
 				request.bulk(table, (err, resultBulk) => {
 					if (err) {
 						console.log(err);
-						res.send(JSON.stringify({ susscess: false, message: err }));
+						res.send(JSON.stringify({ success: false, message: err }));
 					} else {
-						res.send(JSON.stringify({ susscess: true, message: "update success" }));
+						res.send(JSON.stringify({ success: true, message: "update success" }));
 					}
 				})
 			}
 			catch (err) {
 				res.status(500) // Internal Server Error
-				res.send(JSON.stringify({ susscess: false, message: err.message }))
+				res.send(JSON.stringify({ success: false, message: err.message }))
 			}
 		}
 		else {
-			res.send(JSON.stringify({ susscess: false, message: "Missing orderId or orderDetail in body of POST request" }));
+			res.send(JSON.stringify({ success: false, message: "Missing orderId or orderDetail in body of POST request" }));
 		}
 	}
 })
 
+//=============
+// FAVORITE TABLE
+// GET / POST / DELETE
+//=============
+
+router.get('/favorite', async (req, res, next) => {
+	console.log(req.query);
+	if (req.query.key != API_KEY) {
+		res.end(JSON.stringify({ success: false, message: "Wrong API key" }));
+	} else {
+		var fbid = req.query.fbid;
+		if (fbid != null) {
+			try {
+				const pool = await poolPromise
+				const queryResult = await pool.request()
+					.input('FBID', sql.NVarChar, fbid)
+					.query('SELECT fbid,foodId,restaurantId,restaurantName,foodName,foodImage,price'
+					+ ' FROM [Favorite] WHERE fbid=@fbid')
+				if (queryResult.recordset.length > 0) {
+					res.send(JSON.stringify({ success: true, result: queryResult.recordset }));
+				} else {
+					res.send(JSON.stringify({ success: false, message: "Empty" }));
+				}
+			}
+			catch (err) {
+				res.status(500) // Internal Server Error
+				res.send(JSON.stringify({ success: false, message: err.message }))
+			}
+		} else {
+			res.send(JSON.stringify({ success: false, message: "Missing fbid in query" }));
+		}
+	}
+})
+
+router.get('/favoriteByRestaurant', async (req, res, next) => {
+	console.log(req.query);
+	if (req.query.key != API_KEY) {
+		res.end(JSON.stringify({ susscess: false, message: "Wrong API key" }));
+	} else {
+		var fbid = req.query.fbid;
+		var restaurant_id = req.query.restaurantId;
+		if (fbid != null) {
+			try {
+				const pool = await poolPromise
+				const queryResult = await pool.request()
+					.input('FBID', sql.NVarChar, fbid)
+					.input('RestaurantId', sql.Int, restaurant_id)
+					.query('SELECT fbid,foodId,restaurantId,restaurantName,foodName,foodImage,price'
+					+ ' FROM [Favorite] WHERE fbid=@fbid AND restaurantId=@restaurantId')
+				if (queryResult.recordset.length > 0) {
+					res.send(JSON.stringify({ success: true, result: queryResult.recordset }));
+				} else {
+					res.send(JSON.stringify({ success: false, message: "Empty" }));
+				}
+			}
+			catch (err) {
+				res.status(500) // Internal Server Error
+				res.send(JSON.stringify({ susscess: false, message: err.message }))
+			}
+		} else {
+			res.send(JSON.stringify({ success: false, message: "Missing fbid in query" }));
+		}
+	}
+})
+
+router.post('/favorite', async (req, res, next) => {
+	console.log(req.body)
+	if (req.body.key != API_KEY) {
+		res.send(JSON.stringify({ success: false, message: "Wrong API key" }));
+	}
+	else {
+		var fbid = req.body.fbid;
+		var food_id = req.body.foodId;
+		var restaurant_id = req.body.restaurantId;
+		var restaurant_name = req.body.restaurantName;
+		var food_name = req.body.foodName;
+		var food_image = req.body.foodImage;
+		var food_price = req.body.price;
+
+		if (fbid != null) {
+			try {
+				const pool = await poolPromise
+				const queryResult = await pool.request()
+					.input('FBID', sql.NVarChar, fbid)
+					.input('FoodId', sql.Int, food_id)
+					.input('RestaurantId', sql.Int, restaurant_id)
+					.input('RestaurantName', sql.NVarChar, restaurant_name)
+					.input('FoodName', sql.NVarChar, food_name)
+					.input('FoodImage', sql.NVarChar, food_image)
+					.input('Price', sql.Float, food_price)
+					.query('INSERT INTO [Favorite]'
+						+ '(FBID,FoodId,RestaurantId,RestaurantName,FoodName,FoodImage,Price)'
+						+ 'VALUES'
+						+ '(@FBID,@FoodId,@RestaurantId,@RestaurantName,@FoodName,@FoodImage,@Price)')
+
+				res.send(JSON.stringify({ succsess: true, message: "Success" }))
+			}
+			catch (err) {
+				res.status(500) // Internal Server Error
+				res.send(JSON.stringify({ success: false, message: err.message }))
+			}
+		}
+		else {
+			res.send(JSON.stringify({ susscess: false, message: "Missing fbid in body of POST request" }));
+		}
+	}
+})
+
+router.delete('/favorite', async (req, res, next) => {
+	console.log(req.query)
+	if (req.query.key != API_KEY) {
+		res.send(JSON.stringify({ success: false, message: "Wrong API key" }));
+	}
+	else {
+		var fbid = req.query.fbid;
+		var food_id = req.query.foodId;
+		var restaurant_id = req.query.restaurantId;
+
+		if (fbid != null) {
+			try {
+				const pool = await poolPromise
+				const queryResult = await pool.request()
+					.input('FBID', sql.NVarChar, fbid)
+					.input('FoodId', sql.Int, food_id)
+					.input('RestaurantId', sql.Int, restaurant_id)
+					.query('DELETE FROM [Favorite] WHERE FBID=@FBID AND FoodId=@FoodId AND RestaurantId=@RestaurantId ')
+
+				res.send(JSON.stringify({ succsess: true, message: "Success" }))
+			}
+			catch (err) {
+				res.status(500) // Internal Server Error
+				res.send(JSON.stringify({ success: false, message: err.message }))
+			}
+		}
+		else {
+			res.send(JSON.stringify({ susscess: false, message: "Missing fbid in query" }));
+		}
+	}
+})
 
 module.exports = router;
