@@ -134,7 +134,7 @@ router.get('/restaurantById', async (req, res, next) => {
 			}
 		}
 		else {
-			res.end(JSON.stringify({ susscess: false, message: "Missing restaurantId in query" }));
+			res.send(JSON.stringify({ susscess: false, message: "Missing restaurantId in query" }));
 		}
 	}
 })
@@ -161,9 +161,9 @@ router.get('/nearbyrestaurant', async (req, res, next) => {
 						+ ' WHERE distance_in_km < @distance')
 
 				if (queryResult.recordset.length > 0) {
-					res.end(JSON.stringify({ susscess: true, result: queryResult.recordset }));
+					res.send(JSON.stringify({ susscess: true, result: queryResult.recordset }));
 				} else {
-					res.end(JSON.stringify({ susscess: false, message: "Empty" }));
+					res.send(JSON.stringify({ susscess: false, message: "Empty" }));
 				}
 			}
 			catch (err) {
@@ -188,21 +188,59 @@ router.get('/menu', async (req, res, next) => {
 		res.end(JSON.stringify({ susscess: false, message: "Wrong API key" }));
 	} else {
 		var restaurant_id = req.query.restaurantId;
-		if (req.query.API_KEY != null) {
+		if (restaurant_id != null) {
 			try {
 				const pool = await poolPromise
 				const queryResult = await pool.request()
-					.query('SELECT id, name, address, phone, lat, lng, userOwner, image, paymentUrl from [Restaurant]')
+					.input('RestaurantId',sql.Int,restaurant_id)
+					.query('SELECT id,name,description,image FROM [Menu] WHERE id IN'
+						+ '(SELECT menuId FROM [Restaurant_Menu] WHERE restaurantId=@restaurantId)')   
 				if (queryResult.recordset.length > 0) {
-					res.end(JSON.stringify({ susscess: true, result: queryResult.recordset }));
+					res.send(JSON.stringify({ susscess: true, result: queryResult.recordset }));
 				} else {
-					res.end(JSON.stringify({ susscess: false, message: "Empty" }));
+					res.send(JSON.stringify({ susscess: false, message: "Empty" }));
 				}
 			}
 			catch (err) {
 				res.status(500) // Internal Server Error
 				res.send(JSON.stringify({ susscess: false, message: err.message }))
 			}
+		} else {
+			res.send(JSON.stringify({ susscess: false, message: "Missing restaurantId in query" }));
+		}
+	}
+})
+
+//=============
+// FOOD TABLE
+// GET
+//=============
+
+router.get('/food', async (req, res, next) => {
+	console.log(req.query);
+	if (req.query.key != API_KEY) {
+		res.end(JSON.stringify({ susscess: false, message: "Wrong API key" }));
+	} else {
+		var menu_id = req.query.menuId;
+		if (menu_id != null) {
+			try {
+				const pool = await poolPromise
+				const queryResult = await pool.request()
+					.input('MenuId', sql.Int, menu_id)
+					.query('SELECT id,name,description,image,price,isSize,isAddon,discount FROM [Food] WHERE id IN'
+					+ '(SELECT foodId FROM [Menu_Food] WHERE menuId=@menuId)')
+				if (queryResult.recordset.length > 0) {
+					res.send(JSON.stringify({ susscess: true, result: queryResult.recordset }));
+				} else {
+					res.send(JSON.stringify({ susscess: false, message: "Empty" }));
+				}
+			}
+			catch (err) {
+				res.status(500) // Internal Server Error
+				res.send(JSON.stringify({ susscess: false, message: err.message }))
+			}
+		} else {
+			res.send(JSON.stringify({ susscess: false, message: "Missing menu in query" }));
 		}
 	}
 })
