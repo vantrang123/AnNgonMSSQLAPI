@@ -85,6 +85,81 @@ router.post('/user', async (req, res, next) => {
 })
 
 //=============
+// RESTAURANTOWNER TABLE
+// POST  / GET
+//=============
+router.get('/restaurantowner', async (req, res, next) => {
+	console.log(req.query);
+	if (req.query.key != API_KEY) {
+		res.send(JSON.stringify({ success: false, message: "Wrong API key" }));
+	} else {
+		var fbid = req.query.fbid;
+		if (fbid != null) {
+			try {
+				const pool = await poolPromise
+				const queryResult = await pool.request()
+					.input('fbid', sql.NVarChar, fbid)
+					.query('SELECT userPhone,name,status,restaurantId,fbid FROM [RestaurantOwner] where fbid=@fbid')
+				if (queryResult.recordset.length > 0) {
+					res.send(JSON.stringify({ success: true, result: queryResult.recordset }));
+				} else {
+					res.send(JSON.stringify({ success: false, message: "Empty" }));
+				}
+			}
+			catch (err) {
+				res.status(500) // Internal Server Error
+				res.send(JSON.stringify({ success: false, message: err.message }))
+			}
+		} else {
+			res.send(JSON.stringify({ success: false, message: "Missing fbid in query" }));
+		}
+	}
+})
+
+router.post('/restaurantowner', async (req, res, next) => {
+	console.log(req.body)
+	if (req.body.key != API_KEY) {
+		res.send(JSON.stringify({ success: false, message: "Wrong API key" }));
+	}
+	else {
+		var user_phone = req.body.userPhone;
+		var user_name = req.body.userName;
+		var user_address = req.body.userAddress;
+		var fbid = req.body.fbid;
+
+		if (fbid != null) {
+			try {
+				const pool = await poolPromise
+				const queryResult = await pool.request()
+					.input('UserPhone', sql.NVarChar, user_phone)
+					.input('UserName', sql.NVarChar, user_name)
+					.input('FBID', sql.NVarChar, fbid)
+					.query('IF EXISTS(SELECT * FROM [RestaurantOwner] WHERE FBID=@FBID)'
+						+ ' UPDATE [RestaurantOwner] SET Name=@UserName WHERE FBID=@FBID'
+						+ ' ELSE'
+						+ ' INSERT INTO [RestaurantOwner](FBID,UserPhone,Name,Status) OUTPUT Inserted.FBID, Inserted.UserPhone, Inserted.Name, Inserted.Status'
+						+ ' VALUES(@FBID,@UserPhone,@UserName,0)'
+					);
+
+				console.log(queryResult); // Debug to see
+
+				if (queryResult.rowsAffected != null) {
+					res.send(JSON.stringify({ success: true, message: "Success" }))
+				}
+
+			}
+			catch (err) {
+				res.status(500) // Internal Server Error
+				res.send(JSON.stringify({ success: false, message: err.message }))
+			}
+		}
+		else {
+			res.send(JSON.stringify({ success: false, message: "Missing fbid in body of POST request" }));
+		}
+	}
+})
+
+//=============
 // RESTAURANT TABLE
 // GET
 //=============
@@ -247,7 +322,7 @@ router.get('/food', async (req, res, next) => {
 
 router.get('/foodById', async (req, res, next) => {
 	console.log(req.query);
-	if (req.query.key != API_KEY) {
+	if (req.query.key != API_KEY) {	
 		res.end(JSON.stringify({ success: false, message: "Wrong API key" }));
 	} else {
 		var food_id = req.query.foodId;
@@ -351,7 +426,7 @@ router.get('/addon', async (req, res, next) => {
 				const pool = await poolPromise
 				const queryResult = await pool.request()
 					.input('FoodId', sql.Int, food_id)
-					.query('SELECT id,description,extraPrice FROM [Addon] WHERE id IN'
+					.query('SELECT id,name,extraPrice FROM [Addon] WHERE id IN'
 						+ ' (SELECT AddonId FROM [Food_Addon] WHERE foodId=@FoodId)')
 				if (queryResult.recordset.length > 0) {
 					res.send(JSON.stringify({ success: true, result: queryResult.recordset }));
@@ -652,7 +727,7 @@ router.post('/favorite', async (req, res, next) => {
 						+ 'VALUES'
 						+ '(@FBID,@FoodId,@RestaurantId,@RestaurantName,@FoodName,@FoodImage,@Price)')
 
-				res.send(JSON.stringify({ succsess: true, message: "Success" }))
+				res.send(JSON.stringify({ success: true, message: "Success" }))
 			}
 			catch (err) {
 				res.status(500) // Internal Server Error
@@ -684,7 +759,7 @@ router.delete('/favorite', async (req, res, next) => {
 					.input('RestaurantId', sql.Int, restaurant_id)
 					.query('DELETE FROM [Favorite] WHERE FBID=@FBID AND FoodId=@FoodId AND RestaurantId=@RestaurantId ')
 
-				res.send(JSON.stringify({ succsess: true, message: "Success" }))
+				res.send(JSON.stringify({ success: true, message: "Success" }))
 			}
 			catch (err) {
 				res.status(500) // Internal Server Error
