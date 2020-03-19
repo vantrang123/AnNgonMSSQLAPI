@@ -256,7 +256,6 @@ router.get('/nearbyrestaurant', async (req, res, next) => {
 // MENU TABLE
 // GET
 //=============
-
 router.get('/menu', async (req, res, next) => {
 	console.log(req.query);
 	if (req.query.key != API_KEY) {
@@ -290,7 +289,6 @@ router.get('/menu', async (req, res, next) => {
 // FOOD TABLE
 // GET
 //=============
-
 router.get('/food', async (req, res, next) => {
 	console.log(req.query);
 	if (req.query.key != API_KEY) {
@@ -317,6 +315,88 @@ router.get('/food', async (req, res, next) => {
 		} else {
 			res.send(JSON.stringify({ success: false, message: "Missing menuId in query" }));
 		}
+	}
+})
+
+router.get('/allfood', async (req, res, next) => {
+	/*console.log(req.query);
+	if (req.query.key != API_KEY) {
+		res.end(JSON.stringify({ success: false, message: "Wrong API key" }));
+	} else {
+			try {
+				const pool = await poolPromise
+				const queryResult = await pool.request()
+					.query('SELECT id,name,description,image,price,isSize,isAddon,discount FROM [Food]')
+				if (queryResult.recordset.length > 0) {
+					res.send(JSON.stringify({ success: true, result: queryResult.recordset }));
+				} else {
+					res.send(JSON.stringify({ success: false, message: "Empty" }));
+				}
+			}
+			catch (err) {
+				res.status(500) // Internal Server Error
+				res.send(JSON.stringify({ success: false, message: err.message }))
+			}
+		
+	}*/
+	console.log(req.query);
+	if (req.query.key != API_KEY) {
+		res.end(JSON.stringify({ success: false, message: "Wrong API key" }));
+	} else {
+		var startIndex = req.query.from;
+		var endIndex = req.query.to;
+		
+			try {
+				if(startIndex == null) {
+					startIndex = 0; // if user not submit from, default is 0
+				}
+				if(endIndex == null) {
+					endIndex = 10;
+				}
+
+				const pool = await poolPromise
+				const queryResult = await pool.request()
+					.input('StartIndex', sql.NVarChar, startIndex)
+					.input('EndIndex', sql.NVarChar, endIndex)
+					.query('SELECT * FROM (SELECT ROW_NUMBER() OVER (ORDER BY id DESC) AS RowNum ,id,name,description,image,price,isSize,isAddon,discount'			
+					+ ' FROM [Food]) AS RowConstrainedResult'
+					+ ' WHERE RowNum >= @StartIndex AND RowNum <= @EndIndex ORDER BY id DESC' )
+				if (queryResult.recordset.length > 0) {
+					res.send(JSON.stringify({ success: true, result: queryResult.recordset }));
+				} else {
+					res.send(JSON.stringify({ success: false, message: "Empty" }));
+				}
+			}
+			catch (err) {
+				res.status(500) // Internal Server Error
+				res.send(JSON.stringify({ success: false, message: err.message }))
+			}
+	}
+})
+
+router.get('/maxfood', async (req, res, next) => {
+	console.log(req.query);
+	if (req.query.key != API_KEY) {
+		res.end(JSON.stringify({ success: false, message: "Wrong API key" }));
+	} else {
+
+			try {
+				const pool = await poolPromise
+				const queryResult = await pool.request()
+					.query('SELECT MAX(RowNum) as maxRowNum FROM (SELECT ROW_NUMBER() OVER (ORDER BY id DESC) AS RowNum ,id,name,description,image,price,isSize,isAddon,discount'
+						
+					+ ' FROM [Food]) AS RowConstrainedResult' )
+				if (queryResult.recordset.length > 0) {
+					res.send(JSON.stringify({ success: true, result: queryResult.recordset }));
+				} else {
+					res.send(JSON.stringify({ success: false, message: "Empty" }));
+				}
+			}
+			catch (err) {
+				res.status(500) // Internal Server Error
+				res.send(JSON.stringify({ success: false, message: err.message }))
+			}
+
 	}
 })
 
@@ -380,7 +460,6 @@ router.get('/searchFood', async (req, res, next) => {
 // SIZE TABLE
 // GET
 //=============
-
 router.get('/size', async (req, res, next) => {
 	console.log(req.query);
 	if (req.query.key != API_KEY) {
@@ -414,7 +493,6 @@ router.get('/size', async (req, res, next) => {
 // ADDON TABLE
 // GET
 //=============
-
 router.get('/addon', async (req, res, next) => {
 	console.log(req.query);
 	if (req.query.key != API_KEY) {
@@ -445,11 +523,227 @@ router.get('/addon', async (req, res, next) => {
 })
 
 //=============
+// TOKEN TABLE
+// GET / POST
+//=============
+router.get('/token', async (req, res, next) => {
+	console.log(req.query);
+	if (req.query.key != API_KEY) {
+		res.end(JSON.stringify({ success: false, message: "Wrong API key" }));
+	} else {
+		var fbid = req.query.fbid;
+		if (fbid != null) {
+			try {
+				const pool = await poolPromise
+				const queryResult = await pool.request()
+					.input('FBID', sql.NVarChar, fbid)
+					.query('SELECT fbid,token FROM [Token] where fbid=@FBID')
+				if (queryResult.recordset.length > 0) {
+					res.end(JSON.stringify({ success: true, result: queryResult.recordset }));
+				} else {
+					res.end(JSON.stringify({ success: false, message: "Empty" }));
+				}
+			}
+			catch (err) {
+				res.status(500) // Internal Server Error
+				res.send(JSON.stringify({ success: false, message: err.message }))
+			}
+		} else {
+			res.end(JSON.stringify({ success: false, message: "Missing fbid in query" }));
+		}
+	}
+})
+
+router.post('/token', async (req, res, next) => {
+	console.log(req.body)
+	if (req.body.key != API_KEY) {
+		res.send(JSON.stringify({ success: false, message: "Wrong API key" }));
+	}
+	else {
+		var token = req.body.token;
+		var fbid = req.body.fbid;
+
+		if (fbid != null) {
+			try {
+				const pool = await poolPromise
+				const queryResult = await pool.request()
+					.input('FBID', sql.NVarChar, fbid)
+					.input('TOKEN', sql.NVarChar, token)
+					.query('IF EXISTS(SELECT * FROM [Token] WHERE FBID=@FBID)'
+						+ ' UPDATE [Token] SET token=@TOKEN WHERE FBID=@FBID'
+						+ ' ELSE'
+						+ ' INSERT INTO [Token](FBID,token) OUTPUT Inserted.FBID, Inserted.token'
+						+ ' VALUES(@FBID,@TOKEN)'
+					);
+
+				console.log(queryResult); // Debug to see
+
+				if (queryResult.rowsAffected != null) {
+					res.send(JSON.stringify({ success: true, message: "Success" }))
+				}
+
+			}
+			catch (err) {
+				res.status(500) // Internal Server Error
+				res.send(JSON.stringify({ success: false, message: err.message }))
+			}
+		}
+		else {
+			res.send(JSON.stringify({ success: false, message: "Missing fbid in body of POST request" }));
+		}
+	}
+})
+
+//=============
 // ORDER AND ORDER DETAIL TABLE
 // GET / POST
 //=============
+router.get('/orderbyrestaurant', async (req, res, next) => {
+	console.log(req.query);
+	if (req.query.key != API_KEY) {
+		res.end(JSON.stringify({ success: false, message: "Wrong API key" }));
+	} else {
+		var restaurantId = req.query.restaurantId;
+		var startIndex = req.query.from;
+		var endIndex = req.query.to;
+		if (restaurantId != null) {
+			try {
+				if(startIndex == null) {
+					startIndex = 0; // if user not submit from, default is 0
+				}
+				if(endIndex == null) {
+					endIndex = 10;
+				}
+
+				const pool = await poolPromise
+				const queryResult = await pool.request()
+					.input('RestaurantId', sql.NVarChar, restaurantId)
+					.input('StartIndex', sql.NVarChar, startIndex)
+					.input('EndIndex', sql.NVarChar, endIndex)
+					.query('SELECT * FROM (SELECT ROW_NUMBER() OVER (ORDER BY orderId DESC) AS RowNum ,orderId,orderFBID,orderPhone,orderName,orderAddress,orderStatus'
+						+ ',orderDate,restaurantId,transactionId,cod,totalPrice,numOfItem'
+					+ ' FROM [Order] WHERE restaurantId=@RestaurantId AND numOfItem > 0) AS RowConstrainedResult'
+					+ ' WHERE RowNum >= @StartIndex AND RowNum <= @EndIndex ORDER BY orderId DESC' )
+				if (queryResult.recordset.length > 0) {
+					res.send(JSON.stringify({ success: true, result: queryResult.recordset }));
+				} else {
+					res.send(JSON.stringify({ success: false, message: "Empty" }));
+				}
+			}
+			catch (err) {
+				res.status(500) // Internal Server Error
+				res.send(JSON.stringify({ success: false, message: err.message }))
+			}
+		} else {
+			res.send(JSON.stringify({ success: false, message: "Missing orderFBID in query" }));
+		}
+	}
+})
+
+router.get('/maxorderbyrestaurant', async (req, res, next) => {
+	console.log(req.query);
+	if (req.query.key != API_KEY) {
+		res.end(JSON.stringify({ success: false, message: "Wrong API key" }));
+	} else {
+		var restaurantId = req.query.restaurantId;
+		if (restaurantId != null) {
+			try {
+				const pool = await poolPromise
+				const queryResult = await pool.request()
+					.input('RestaurantId', sql.NVarChar, restaurantId)
+					.query('SELECT MAX(RowNum) as maxRowNum FROM (SELECT ROW_NUMBER() OVER (ORDER BY orderId DESC) AS RowNum ,orderId,orderFBID,orderPhone,orderName,orderAddress,orderStatus'
+						+ ',orderDate,restaurantId,transactionId,cod,totalPrice,numOfItem'
+					+ ' FROM [Order] WHERE restaurantId=@RestaurantId AND numOfItem > 0) AS RowConstrainedResult' )
+				if (queryResult.recordset.length > 0) {
+					res.send(JSON.stringify({ success: true, result: queryResult.recordset }));
+				} else {
+					res.send(JSON.stringify({ success: false, message: "Empty" }));
+				}
+			}
+			catch (err) {
+				res.status(500) // Internal Server Error
+				res.send(JSON.stringify({ success: false, message: err.message }))
+			}
+		} else {
+			res.send(JSON.stringify({ success: false, message: "Missing orderFBID in query" }));
+		}
+	}
+})
+
+router.get('/orderdetailbyrestaurant', async (req, res, next) => {
+	console.log(req.query);
+	if (req.query.key != API_KEY) {
+		res.end(JSON.stringify({ success: false, message: "Wrong API key" }));
+	} else {
+		var order_id = req.query.orderId;
+		if (order_id != null) {
+			try {
+				const pool = await poolPromise
+				const queryResult = await pool.request()
+					.input('OrderId', sql.Int, order_id)
+					.query('SELECT OrderDetail.orderId,itemId,quantity,size,addOn,OrderFBID,name,description,image'
+					+ ' FROM [OrderDetail] INNER JOIN [Order] ON OrderDetail.orderId = [Order].orderId'
+					+ ' INNER JOIN Food ON OrderDetail.itemId = Food.ID'
+					+ ' WHERE OrderDetail.orderId=@OrderId')
+				if (queryResult.recordset.length > 0) {
+					res.send(JSON.stringify({ success: true, result: queryResult.recordset }));
+				} else {
+					res.send(JSON.stringify({ success: false, message: "Empty" }));
+				}
+			}
+			catch (err) {
+				res.status(500) // Internal Server Error
+				res.send(JSON.stringify({ success: false, message: err.message }))
+			}
+		} else {
+			res.send(JSON.stringify({ success: false, message: "Missing orderId in query" }));
+		}
+	}
+})
 
 router.get('/order', async (req, res, next) => {
+	console.log(req.query);
+	if (req.query.key != API_KEY) {
+		res.end(JSON.stringify({ success: false, message: "Wrong API key" }));
+	} else {
+		var order_fbid = req.query.orderFBID;
+		var startIndex = req.query.from;
+		var endIndex = req.query.to;
+		if (order_fbid != null) {
+			try {
+				if(startIndex == null) {
+					startIndex = 0; // if user not submit from, default is 0
+				}
+				if(endIndex == null) {
+					endIndex = 10;
+				}
+
+				const pool = await poolPromise
+				const queryResult = await pool.request()
+					.input('OrderFBID', sql.NVarChar, order_fbid)
+					.input('StartIndex', sql.NVarChar, startIndex)
+					.input('EndIndex', sql.NVarChar, endIndex)
+					.query('SELECT * FROM (SELECT ROW_NUMBER() OVER (ORDER BY orderId DESC) AS RowNum ,orderId,orderFBID,orderPhone,orderName,orderAddress,orderStatus'
+						+ ',orderDate,restaurantId,transactionId,cod,totalPrice,numOfItem'
+					+ ' FROM [Order] WHERE orderFBID=@OrderFBID AND numOfItem > 0) AS RowConstrainedResult'
+					+ ' WHERE RowNum >= @StartIndex AND RowNum <= @EndIndex ORDER BY orderId DESC' )
+				if (queryResult.recordset.length > 0) {
+					res.send(JSON.stringify({ success: true, result: queryResult.recordset }));
+				} else {
+					res.send(JSON.stringify({ success: false, message: "Empty" }));
+				}
+			}
+			catch (err) {
+				res.status(500) // Internal Server Error
+				res.send(JSON.stringify({ success: false, message: err.message }))
+			}
+		} else {
+			res.send(JSON.stringify({ success: false, message: "Missing orderFBID in query" }));
+		}
+	}
+})
+
+router.get('/maxorder', async (req, res, next) => {
 	console.log(req.query);
 	if (req.query.key != API_KEY) {
 		res.end(JSON.stringify({ success: false, message: "Wrong API key" }));
@@ -460,9 +754,9 @@ router.get('/order', async (req, res, next) => {
 				const pool = await poolPromise
 				const queryResult = await pool.request()
 					.input('OrderFBID', sql.NVarChar, order_fbid)
-					.query('SELECT orderId,orderFBID,orderPhone,orderName,orderAddress,orderStatus'
+					.query('SELECT MAX(RowNum) as maxRowNum FROM (SELECT ROW_NUMBER() OVER (ORDER BY orderId DESC) AS RowNum ,orderId,orderFBID,orderPhone,orderName,orderAddress,orderStatus'
 						+ ',orderDate,restaurantId,transactionId,cod,totalPrice,numOfItem'
-					+ ' FROM [Order] WHERE orderFBID=@OrderFBID')
+					+ ' FROM [Order] WHERE orderFBID=@OrderFBID AND numOfItem > 0) AS RowConstrainedResult' )
 				if (queryResult.recordset.length > 0) {
 					res.send(JSON.stringify({ success: true, result: queryResult.recordset }));
 				} else {
@@ -538,7 +832,6 @@ router.post('/createOrder', async (req, res, next) => {
 					.input('COD', sql.Bit, cod == true ? 1 : 0)
 					.input('TotalPrice', sql.Float, total_price)
 					.input('NumOfItem', sql.Int, num_of_item)
-					.input('FBID', sql.NVarChar, order_fbid)
 					.query('INSERT INTO [Order]'
 					+ '(OrderFBID,OrderPhone,OrderName,OrderAddress,OrderStatus,OrderDate,RestaurantId,TransactionId,COD,TotalPrice,NumOfItem)'
 						+ 'VALUES'
@@ -636,7 +929,6 @@ router.post('/updateOrder', async (req, res, next) => {
 // FAVORITE TABLE
 // GET / POST / DELETE
 //=============
-
 router.get('/favorite', async (req, res, next) => {
 	console.log(req.query);
 	if (req.query.key != API_KEY) {
