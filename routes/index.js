@@ -252,6 +252,35 @@ router.get('/nearbyrestaurant', async (req, res, next) => {
 	}
 })
 
+router.get('/findrestaurantid', async (req, res, next) => {
+	console.log(req.query);
+	if (req.query.key != API_KEY) {
+		res.end(JSON.stringify({ success: false, message: "Wrong API key" }));
+	} else {
+		var food_id = req.query.foodId;
+		if (food_id != null) {
+			try {
+				const pool = await poolPromise
+				const queryResult = await pool.request()
+					.input('FoodId',sql.Int,food_id)
+					.query('SELECT restaurantId FROM [Restaurant_Menu] WHERE menuId IN'
+						+ '(SELECT menuId FROM [Menu_Food] WHERE FoodId=@FoodId)')
+				if (queryResult.recordset.length > 0) {
+					res.send(JSON.stringify({ success: true, result: queryResult.recordset }));
+				} else {
+					res.send(JSON.stringify({ success: false, message: "Empty" }));
+				}
+			}
+			catch (err) {
+				res.status(500) // Internal Server Error
+				res.send(JSON.stringify({ success: false, message: err.message }))
+			}
+		} else {
+			res.send(JSON.stringify({ success: false, message: "Missing restaurantId in query" }));
+		}
+	}
+})
+
 //=============
 // MENU TABLE
 // GET
@@ -598,6 +627,31 @@ router.post('/token', async (req, res, next) => {
 // ORDER AND ORDER DETAIL TABLE
 // GET / POST
 //=============
+router.get('/hotfood', async (req, res, next) => {
+	console.log(req.query);
+	if (req.query.key != API_KEY) {
+		res.end(JSON.stringify({ success: false, message: "Wrong API key" }));
+	} else {
+			try {
+				const pool = await poolPromise
+				const queryResult = await pool.request()
+					.query('SELECT TOP 10 tempTable.itemId, tempTable.name, tempTable.image, ROUND((COUNT(tempTable.itemId)*100.0/ (SELECT COUNT(*) FROM OrderDetail)),2) AS [percent]'
+					+' FROM (SELECT itemId,name,image FROM Food INNER JOIN OrderDetail ON Food.ID = OrderDetail.ItemId) tempTable'
+					+' GROUP BY tempTable.itemId, tempTable.name, tempTable.image'
+					+' ORDER BY [percent] DESC')
+				if (queryResult.recordset.length > 0) {
+					res.send(JSON.stringify({ success: true, result: queryResult.recordset }));
+				} else {
+					res.send(JSON.stringify({ success: false, message: "Empty" }));
+				}
+			}
+			catch (err) {
+				res.status(500) // Internal Server Error
+				res.send(JSON.stringify({ success: false, message: err.message }))
+			}
+		}
+})
+
 router.get('/orderbyrestaurant', async (req, res, next) => {
 	console.log(req.query);
 	if (req.query.key != API_KEY) {
@@ -921,6 +975,36 @@ router.post('/updateOrder', async (req, res, next) => {
 		}
 		else {
 			res.send(JSON.stringify({ success: false, message: "Missing orderId or orderDetail in body of POST request" }));
+		}
+	}
+})
+
+router.put('/updateOrder', async (req, res, next) => {
+	console.log(req.body)
+	if (req.body.key != API_KEY) {
+		res.send(JSON.stringify({ success: false, message: "Wrong API key" }));
+	}
+	else {
+		var order_id = req.body.orderId;
+		var order_status = req.body.orderStatus;
+		if (order_id != null && order_status != null) {
+			try {
+				const pool = await poolPromise
+				const queryResult = await pool.request()
+					.input('OrderId', sql.Int, order_id)
+					.input('OrderStatus', sql.Int, order_status)
+					.query('UPDATE [Order] SET OrderStatus=@OrderStatus WHERE OrderId=@OrderId')
+				if (queryResult.rowsAffected != null)
+					res.end(JSON.stringify({ success: true, message: "Success" }))
+			} catch(err) {
+				console.log(err);
+				res.status(500); 
+				res.send(JSON.stringify({ success: false, message: err.message }))
+			}
+		}
+		
+		else {
+			res.send(JSON.stringify({ success: false, message: "Missing orderId or orderStatus in body of PUT request" }));
 		}
 	}
 })
