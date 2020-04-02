@@ -17,13 +17,15 @@ router.get('/user', async (req, res, next) => {
 	if (req.query.key != API_KEY) {
 		res.end(JSON.stringify({ success: false, message: "Wrong API key" }));
 	} else {
-		var fbid = req.query.fbid;
-		if (fbid != null) {
+		var userPhone = req.query.userPhone;
+		var password = req.query.password;
+		if (userPhone != null && password != null) {
 			try {
 				const pool = await poolPromise
 				const queryResult = await pool.request()
-					.input('fbid', sql.NVarChar, fbid)
-					.query('SELECT userPhone,name,address,fbid FROM [User] where fbid=@fbid')
+					.input('userPhone', sql.NVarChar, userPhone)
+					.input('password', sql.NVarChar, password)
+					.query('SELECT userPhone,name,address,fbid,password FROM [User] WHERE userPhone=@userPhone AND password=@password')
 				if (queryResult.recordset.length > 0) {
 					res.end(JSON.stringify({ success: true, result: queryResult.recordset }));
 				} else {
@@ -35,7 +37,7 @@ router.get('/user', async (req, res, next) => {
 				res.send(JSON.stringify({ success: false, message: err.message }))
 			}
 		} else {
-			res.end(JSON.stringify({ success: false, message: "Missing fbid in query" }));
+			res.end(JSON.stringify({ success: false, message: "Missing in query" }));
 		}
 	}
 })
@@ -50,6 +52,7 @@ router.post('/user', async (req, res, next) => {
 		var user_name = req.body.userName;
 		var user_address = req.body.userAddress;
 		var fbid = req.body.fbid;
+		var user_password = req.body.userPassword;
 
 		if (fbid != null) {
 			try {
@@ -59,11 +62,12 @@ router.post('/user', async (req, res, next) => {
 					.input('UserName', sql.NVarChar, user_name)
 					.input('UserAddress', sql.NVarChar, user_address)
 					.input('FBID', sql.NVarChar, fbid)
+					.input('UserPassword', sql.NVarChar, user_password)
 					.query('IF EXISTS(SELECT * FROM [User] WHERE FBID=@FBID)'
-						+ ' UPDATE [User] SET Name=@UserName, Address=@UserAddress WHERE FBID=@FBID'
+						+ ' UPDATE [User] SET Name=@UserName, Address=@UserAddress, Password=@UserPassword WHERE FBID=@FBID'
 						+ ' ELSE'
-						+ ' INSERT INTO [User](FBID,UserPhone,Name,Address) OUTPUT Inserted.FBID, Inserted.UserPhone, Inserted.Name, Inserted.Address'
-						+ ' VALUES(@FBID,@UserPhone,@UserName,@UserAddress)'
+						+ ' INSERT INTO [User](FBID,UserPhone,Name,Address,Password) OUTPUT Inserted.FBID, Inserted.UserPhone, Inserted.Name, Inserted.Address, Inserted.Password'
+						+ ' VALUES(@FBID,@UserPhone,@UserName,@UserAddress,@UserPassword)'
 					);
 
 				console.log(queryResult); // Debug to see
@@ -281,6 +285,44 @@ router.get('/findrestaurantid', async (req, res, next) => {
 	}
 })
 
+router.post('/createrestaurant', async (req, res, next) => {
+	console.log(req.body)
+	if (req.body.key != API_KEY) {
+		res.send(JSON.stringify({ success: false, message: "Wrong API key" }));
+	}
+	else {
+		var menu_name = req.body.name;
+		var menu_description= req.body.address;
+		var menu_image = req.body.phone;
+
+		try {
+			const pool = await poolPromise
+			const queryResult = await pool.request()
+				.input('Name', sql.NVarChar, menu_name)
+				.input('Address', sql.NVarChar, menu_description)
+				.input('Phone', sql.NVarChar, menu_image)
+				.query('INSERT INTO [Restaurant]'
+				+ '(Name,Address,Phone)'
+					+ 'VALUES'
+				+ '(@Name,@Address,@Phone)'
+					+ 'SELECT TOP 1 ID as id FROM [Restaurant] ORDER BY id DESC'
+				);
+
+
+			if (queryResult.recordset.length > 0) {
+				res.send(JSON.stringify({ success: true, result: queryResult.recordset }))
+			} else {
+				res.send(JSON.stringify({ success: false, message: "Empty" }));
+			}
+
+		}
+		catch (err) {
+			res.status(500) // Internal Server Error
+				res.send(JSON.stringify({ success: false, message: err.message }))
+		}
+	}
+})
+
 //=============
 // MENU TABLE
 // GET
@@ -310,6 +352,79 @@ router.get('/menu', async (req, res, next) => {
 			}
 		} else {
 			res.send(JSON.stringify({ success: false, message: "Missing restaurantId in query" }));
+		}
+	}
+})
+
+router.post('/createmenu', async (req, res, next) => {
+	console.log(req.body)
+	if (req.body.key != API_KEY) {
+		res.send(JSON.stringify({ success: false, message: "Wrong API key" }));
+	}
+	else {
+		var menu_name = req.body.name;
+		var menu_description= req.body.description;
+		var menu_image = req.body.image;
+
+		try {
+			const pool = await poolPromise
+			const queryResult = await pool.request()
+				.input('Name', sql.NVarChar, menu_name)
+				.input('Description', sql.NVarChar, menu_description)
+				.input('Image', sql.NVarChar, menu_image)
+				.query('INSERT INTO [Menu]'
+				+ '(Name,Description,Image)'
+					+ 'VALUES'
+				+ '(@Name,@Description,@Image)'
+					+ 'SELECT TOP 1 ID as id FROM [Menu] ORDER BY id DESC'
+				);
+
+
+			if (queryResult.recordset.length > 0) {
+				res.send(JSON.stringify({ success: true, result: queryResult.recordset }))
+			} else {
+				res.send(JSON.stringify({ success: false, message: "Empty" }));
+			}
+
+		}
+		catch (err) {
+			res.status(500) // Internal Server Error
+				res.send(JSON.stringify({ success: false, message: err.message }))
+		}
+	}
+})
+
+router.put('/updatemenu', async (req, res, next) => {
+	console.log(req.body)
+	if (req.body.key != API_KEY) {
+		res.send(JSON.stringify({ success: false, message: "Wrong API key" }));
+	}
+	else {
+		var menu_id = req.body.menuId;
+		var menu_name = req.body.name;
+		var menu_description= req.body.description;
+		var menu_image = req.body.image;
+		
+		if (menu_id != null && menu_name != null && menu_description != null && menu_image != null) {
+			try {
+				const pool = await poolPromise
+				const queryResult = await pool.request()
+					.input('MenuId', sql.Int, menu_id)
+					.input('Name', sql.NVarChar, menu_name)
+					.input('Description', sql.NVarChar, menu_description)
+					.input('Image', sql.NVarChar, menu_image)
+					.query('UPDATE [Menu] SET Name=@Name,Description=@Description,Image=@Image WHERE ID=@MenuId')
+				if (queryResult.rowsAffected != null)
+					res.end(JSON.stringify({ success: true, message: "Success" }))
+			} catch(err) {
+				console.log(err);
+				res.status(500); 
+				res.send(JSON.stringify({ success: false, message: err.message }))
+			}
+		}
+		
+		else {
+			res.send(JSON.stringify({ success: false, message: "Missing in body of PUT request" }));
 		}
 	}
 })
@@ -484,6 +599,172 @@ router.get('/searchFood', async (req, res, next) => {
 		}
 	}
 })
+
+router.post('/createfood', async (req, res, next) => {
+	console.log(req.body)
+	if (req.body.key != API_KEY) {
+		res.send(JSON.stringify({ success: false, message: "Wrong API key" }));
+	}
+	else {
+		var food_name = req.body.name;
+		var food_description= req.body.description;
+		var food_image = req.body.image;
+		var food_price = req.body.price;
+		var food_isSize = req.body.isSize;
+		var food_isAddon = req.body.isAddon;
+		var food_discount = req.body.discount;
+
+		try {
+			const pool = await poolPromise
+			const queryResult = await pool.request()
+				.input('Name', sql.NVarChar, food_name)
+				.input('Description', sql.NVarChar, food_description)
+				.input('Image', sql.NVarChar, food_image)
+				.input('Price', sql.Float, food_price)
+				.input('IsSize', sql.Bit, food_isSize)
+				.input('IsAddon', sql.Bit, food_isAddon)
+				.input('Discount', sql.Int, food_discount)
+				.query('INSERT INTO [Food]'
+				+ '(Name,Description,Image,Price,IsSize,IsAddon,Discount)'
+					+ 'VALUES'
+				+ '(@Name,@Description,@Image,@Price,@IsSize,@IsAddon,@Discount)'
+					+ 'SELECT TOP 1 ID as id FROM [Food] ORDER BY id DESC'
+				);
+
+
+			if (queryResult.recordset.length > 0) {
+				res.send(JSON.stringify({ success: true, result: queryResult.recordset }))
+			} else {
+				res.send(JSON.stringify({ success: false, message: "Empty" }));
+			}
+
+		}
+		catch (err) {
+			res.status(500) // Internal Server Error
+				res.send(JSON.stringify({ success: false, message: err.message }))
+		}
+	}
+})
+
+router.put('/updatefood', async (req, res, next) => {
+	console.log(req.body)
+	if (req.body.key != API_KEY) {
+		res.send(JSON.stringify({ success: false, message: "Wrong API key" }));
+	}
+	else {
+		var food_id = req.body.foodId;
+		var food_name = req.body.name;
+		var food_description= req.body.description;
+		var food_image = req.body.image;
+		var food_price = req.body.price;
+		var food_isSize = (req.body.isSize == "true");
+		var food_isAddon = (req.body.isAddon == "true");
+		var food_discount = req.body.discount;
+		
+		if (food_id != null) {
+			try {
+				const pool = await poolPromise
+				const queryResult = await pool.request()
+					.input('FoodId', sql.NVarChar, food_id)
+					.input('Name', sql.NVarChar, food_name)
+					.input('Description', sql.NVarChar, food_description)
+					.input('Image', sql.NVarChar, food_image)
+					.input('Price', sql.Float, food_price)
+					.input('IsSize', sql.Bit, food_isSize == true ? 1 : 0)
+					.input('IsAddon', sql.Bit, food_isAddon == true ? 1 : 0)
+					.input('Discount', sql.Int, food_discount)
+					.query('UPDATE [Food] SET Name=@Name,Description=@Description,Image=@Image,Price=@Price,IsSize=@IsSize,IsAddon=@IsAddon,Discount=@Discount WHERE ID=@FoodId')
+				if (queryResult.rowsAffected != null)
+					res.end(JSON.stringify({ success: true, message: "Success" }))
+			} catch(err) {
+				console.log(err);
+				res.status(500); 
+				res.send(JSON.stringify({ success: false, message: err.message }))
+			}
+		}
+		
+		else {
+			res.send(JSON.stringify({ success: false, message: "Missing in body of PUT request" }));
+		}
+	}
+})
+
+//=============
+// MENU_FOOD TABLE
+// POST
+//=============
+router.post('/menufood', async (req, res, next) => {
+	console.log(req.body)
+	if (req.body.key != API_KEY) {
+		res.send(JSON.stringify({ success: false, message: "Wrong API key" }));
+	}
+	else {
+		var menu_id = req.body.menuId;
+		var food_id = req.body.foodId;
+
+			try {
+			const pool = await poolPromise
+			const queryResult = await pool.request()
+				.input('MenuId', sql.Int, menu_id)
+				.input('FoodId', sql.Int, food_id)
+				.query(''
+					+ ' INSERT INTO [Menu_Food](MenuID,FoodId) OUTPUT Inserted.MenuID, Inserted.FoodId'
+					+ ' VALUES(@MenuId,@FoodId)'
+				);
+
+			console.log(queryResult); // Debug to see
+
+			if (queryResult.rowsAffected != null) {
+				res.send(JSON.stringify({ success: true, message: "Success" }))
+			}
+
+		}
+		catch (err) {
+			res.status(500) // Internal Server Error
+			res.send(JSON.stringify({ success: false, message: err.message }))
+		}
+		
+	}
+})
+
+//=============
+// RESTAURANT_MENU TABLE
+// POST
+//=============
+router.post('/restaurantmenu', async (req, res, next) => {
+	console.log(req.body)
+	if (req.body.key != API_KEY) {
+		res.send(JSON.stringify({ success: false, message: "Wrong API key" }));
+	}
+	else {
+		var menu_id = req.body.menuId;
+		var restaurant_id = req.body.restaurantId;
+
+			try {
+			const pool = await poolPromise
+			const queryResult = await pool.request()
+				.input('MenuId', sql.Int, menu_id)
+				.input('RestaurantId', sql.Int, restaurant_id)
+				.query(''
+					+ ' INSERT INTO [Restaurant_Menu](RestaurantId,MenuId) OUTPUT Inserted.RestaurantId, Inserted.MenuId'
+					+ ' VALUES(@RestaurantId,@MenuId)'
+				);
+
+			console.log(queryResult); // Debug to see
+
+			if (queryResult.rowsAffected != null) {
+				res.send(JSON.stringify({ success: true, message: "Success" }))
+			}
+
+		}
+		catch (err) {
+			res.status(500) // Internal Server Error
+			res.send(JSON.stringify({ success: false, message: err.message }))
+		}
+		
+	}
+})
+
 
 //=============
 // SIZE TABLE
@@ -730,12 +1011,13 @@ router.get('/orderdetailbyrestaurant', async (req, res, next) => {
 		res.end(JSON.stringify({ success: false, message: "Wrong API key" }));
 	} else {
 		var order_id = req.query.orderId;
+		var restaurant_id = req.query.restaurantId;
 		if (order_id != null) {
 			try {
 				const pool = await poolPromise
 				const queryResult = await pool.request()
 					.input('OrderId', sql.Int, order_id)
-					.query('SELECT OrderDetail.orderId,itemId,quantity,size,addOn,OrderFBID,name,description,image'
+					.query('SELECT OrderDetail.orderId,itemId,quantity,size,addOn,OrderFBID,name,description,image,restaurantId'
 					+ ' FROM [OrderDetail] INNER JOIN [Order] ON OrderDetail.orderId = [Order].orderId'
 					+ ' INNER JOIN Food ON OrderDetail.itemId = Food.ID'
 					+ ' WHERE OrderDetail.orderId=@OrderId')
@@ -778,7 +1060,7 @@ router.get('/order', async (req, res, next) => {
 					.input('StartIndex', sql.NVarChar, startIndex)
 					.input('EndIndex', sql.NVarChar, endIndex)
 					.query('SELECT * FROM (SELECT ROW_NUMBER() OVER (ORDER BY orderId DESC) AS RowNum ,orderId,orderFBID,orderPhone,orderName,orderAddress,orderStatus'
-						+ ',orderDate,restaurantId,transactionId,cod,totalPrice,numOfItem'
+						+ ',orderDate,transactionId,cod,totalPrice,numOfItem,restaurantId'
 					+ ' FROM [Order] WHERE orderFBID=@OrderFBID AND numOfItem > 0) AS RowConstrainedResult'
 					+ ' WHERE RowNum >= @StartIndex AND RowNum <= @EndIndex ORDER BY orderId DESC' )
 				if (queryResult.recordset.length > 0) {
@@ -797,6 +1079,7 @@ router.get('/order', async (req, res, next) => {
 	}
 })
 
+
 router.get('/maxorder', async (req, res, next) => {
 	console.log(req.query);
 	if (req.query.key != API_KEY) {
@@ -809,7 +1092,7 @@ router.get('/maxorder', async (req, res, next) => {
 				const queryResult = await pool.request()
 					.input('OrderFBID', sql.NVarChar, order_fbid)
 					.query('SELECT MAX(RowNum) as maxRowNum FROM (SELECT ROW_NUMBER() OVER (ORDER BY orderId DESC) AS RowNum ,orderId,orderFBID,orderPhone,orderName,orderAddress,orderStatus'
-						+ ',orderDate,restaurantId,transactionId,cod,totalPrice,numOfItem'
+						+ ',orderDate,transactionId,cod,totalPrice,numOfItem,restaurantId'
 					+ ' FROM [Order] WHERE orderFBID=@OrderFBID AND numOfItem > 0) AS RowConstrainedResult' )
 				if (queryResult.recordset.length > 0) {
 					res.send(JSON.stringify({ success: true, result: queryResult.recordset }));
@@ -865,12 +1148,12 @@ router.post('/createOrder', async (req, res, next) => {
 		var order_name = req.body.orderName;
 		var order_address = req.body.orderAddress;
 		var order_date = req.body.orderDate;
-		var restaurant_id = req.body.restaurantId;
 		var transaction_id = req.body.transactionId;
-		var cod = req.body.cod;
+		var cod = (req.body.cod == "true");
 		var total_price = req.body.totalPrice;
 		var num_of_item = req.body.numOfItem;
 		var order_fbid = req.body.orderFBID;
+		var restaurant_id = req.body.restaurantId;
 
 		if (order_fbid != null) {
 			try {
@@ -881,15 +1164,15 @@ router.post('/createOrder', async (req, res, next) => {
 					.input('OrderPhone', sql.NVarChar, order_phone)
 					.input('OrderAddress', sql.NVarChar, order_address)
 					.input('OrderDate', sql.Date, order_date)
-					.input('RestaurantId', sql.Int, restaurant_id)
 					.input('TransactionId', sql.NVarChar, transaction_id)
 					.input('COD', sql.Bit, cod == true ? 1 : 0)
 					.input('TotalPrice', sql.Float, total_price)
 					.input('NumOfItem', sql.Int, num_of_item)
+					.input('RestaurantId', sql.Int, restaurant_id)
 					.query('INSERT INTO [Order]'
-					+ '(OrderFBID,OrderPhone,OrderName,OrderAddress,OrderStatus,OrderDate,RestaurantId,TransactionId,COD,TotalPrice,NumOfItem)'
+					+ '(OrderFBID,OrderPhone,OrderName,OrderAddress,OrderStatus,OrderDate,TransactionId,COD,TotalPrice,NumOfItem,RestaurantId)'
 						+ 'VALUES'
-					+ '(@OrderFBID,@OrderPhone,@OrderName,@OrderAddress,0,@OrderDate,@RestaurantId,@TransactionId,@COD,@TotalPrice,@NumOfItem)'
+					+ '(@OrderFBID,@OrderPhone,@OrderName,@OrderAddress,0,@OrderDate,@TransactionId,@COD,@TotalPrice,@NumOfItem,@RestaurantId)'
 						+ 'SELECT TOP 1 OrderId as orderNumber FROM [Order] WHERE OrderFBID=@OrderFBID ORDER BY orderNumber DESC'
 					);
 
@@ -943,7 +1226,7 @@ router.post('/updateOrder', async (req, res, next) => {
 				table.columns.add('Discount', sql.Int, { nullable: true })
 				table.columns.add('Size', sql.NVarChar(50), { nullable: true }) 
 				table.columns.add('Addon', sql.NVarChar(4000), { nullable: true }) 
-				table.columns.add('ExtraPrice', sql.Float, { nullable: true }) 
+				table.columns.add('ExtraPrice', sql.Float, { nullable: true })
 
 				for (i = 0; i < order_detail.length; i++) {
 					table.rows.add(order_id,
@@ -954,7 +1237,6 @@ router.post('/updateOrder', async (req, res, next) => {
 						order_detail[i]["foodSize"],
 						order_detail[i]["foodAddon"],
 						parseFloat(order_detail[i]["foodExtraPrice"]),
-
 					)
 				}
 
@@ -1024,7 +1306,7 @@ router.get('/favorite', async (req, res, next) => {
 				const pool = await poolPromise
 				const queryResult = await pool.request()
 					.input('FBID', sql.NVarChar, fbid)
-					.query('SELECT fbid,foodId,restaurantId,restaurantName,foodName,foodImage,price'
+					.query('SELECT fbid,foodId,restaurantId,foodName,foodImage,price'
 					+ ' FROM [Favorite] WHERE fbid=@fbid')
 				if (queryResult.recordset.length > 0) {
 					res.send(JSON.stringify({ success: true, result: queryResult.recordset }));
@@ -1055,7 +1337,7 @@ router.get('/favoriteByRestaurant', async (req, res, next) => {
 				const queryResult = await pool.request()
 					.input('FBID', sql.NVarChar, fbid)
 					.input('RestaurantId', sql.Int, restaurant_id)
-					.query('SELECT fbid,foodId,restaurantId,restaurantName,foodName,foodImage,price'
+					.query('SELECT fbid,foodId,restaurantId,foodName,foodImage,price'
 					+ ' FROM [Favorite] WHERE fbid=@fbid AND restaurantId=@restaurantId')
 				if (queryResult.recordset.length > 0) {
 					res.send(JSON.stringify({ success: true, result: queryResult.recordset }));
@@ -1082,7 +1364,6 @@ router.post('/favorite', async (req, res, next) => {
 		var fbid = req.body.fbid;
 		var food_id = req.body.foodId;
 		var restaurant_id = req.body.restaurantId;
-		var restaurant_name = req.body.restaurantName;
 		var food_name = req.body.foodName;
 		var food_image = req.body.foodImage;
 		var food_price = req.body.price;
@@ -1094,14 +1375,13 @@ router.post('/favorite', async (req, res, next) => {
 					.input('FBID', sql.NVarChar, fbid)
 					.input('FoodId', sql.Int, food_id)
 					.input('RestaurantId', sql.Int, restaurant_id)
-					.input('RestaurantName', sql.NVarChar, restaurant_name)
 					.input('FoodName', sql.NVarChar, food_name)
 					.input('FoodImage', sql.NVarChar, food_image)
 					.input('Price', sql.Float, food_price)
 					.query('INSERT INTO [Favorite]'
-						+ '(FBID,FoodId,RestaurantId,RestaurantName,FoodName,FoodImage,Price)'
+						+ '(FBID,FoodId,RestaurantId,FoodName,FoodImage,Price)'
 						+ 'VALUES'
-						+ '(@FBID,@FoodId,@RestaurantId,@RestaurantName,@FoodName,@FoodImage,@Price)')
+						+ '(@FBID,@FoodId,@RestaurantId,@FoodName,@FoodImage,@Price)')
 
 				res.send(JSON.stringify({ success: true, message: "Success" }))
 			}
