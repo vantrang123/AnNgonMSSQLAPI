@@ -431,7 +431,7 @@ router.put('/updatemenu', async (req, res, next) => {
 
 //=============
 // FOOD TABLE
-// GET
+// GET / POST
 //=============
 router.get('/food', async (req, res, next) => {
 	console.log(req.query);
@@ -610,8 +610,8 @@ router.post('/createfood', async (req, res, next) => {
 		var food_description= req.body.description;
 		var food_image = req.body.image;
 		var food_price = req.body.price;
-		var food_isSize = req.body.isSize;
-		var food_isAddon = req.body.isAddon;
+		var food_isSize = (req.body.isSize == "true");
+		var food_isAddon = (req.body.isAddon == "true");
 		var food_discount = req.body.discount;
 
 		try {
@@ -621,8 +621,8 @@ router.post('/createfood', async (req, res, next) => {
 				.input('Description', sql.NVarChar, food_description)
 				.input('Image', sql.NVarChar, food_image)
 				.input('Price', sql.Float, food_price)
-				.input('IsSize', sql.Bit, food_isSize)
-				.input('IsAddon', sql.Bit, food_isAddon)
+				.input('IsSize', sql.Bit, food_isSize == true ? 1 : 0)
+				.input('IsAddon', sql.Bit, food_isAddon == true ? 1 : 0)
 				.input('Discount', sql.Int, food_discount)
 				.query('INSERT INTO [Food]'
 				+ '(Name,Description,Image,Price,IsSize,IsAddon,Discount)'
