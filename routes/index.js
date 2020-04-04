@@ -128,8 +128,8 @@ router.post('/restaurantowner', async (req, res, next) => {
 	else {
 		var user_phone = req.body.userPhone;
 		var user_name = req.body.userName;
-		var user_address = req.body.userAddress;
 		var fbid = req.body.fbid;
+		var password = req.body.password;
 
 		if (fbid != null) {
 			try {
@@ -138,11 +138,12 @@ router.post('/restaurantowner', async (req, res, next) => {
 					.input('UserPhone', sql.NVarChar, user_phone)
 					.input('UserName', sql.NVarChar, user_name)
 					.input('FBID', sql.NVarChar, fbid)
+					.input('Password', sql.NVarChar, password)
 					.query('IF EXISTS(SELECT * FROM [RestaurantOwner] WHERE FBID=@FBID)'
-						+ ' UPDATE [RestaurantOwner] SET Name=@UserName WHERE FBID=@FBID'
+						+ ' UPDATE [RestaurantOwner] SET Name=@UserName,Password=@Password WHERE FBID=@FBID'
 						+ ' ELSE'
-						+ ' INSERT INTO [RestaurantOwner](FBID,UserPhone,Name,Status) OUTPUT Inserted.FBID, Inserted.UserPhone, Inserted.Name, Inserted.Status'
-						+ ' VALUES(@FBID,@UserPhone,@UserName,0)'
+						+ ' INSERT INTO [RestaurantOwner](FBID,UserPhone,Name,Status,Password) OUTPUT Inserted.FBID, Inserted.UserPhone, Inserted.Name, Inserted.Status, Inserted.Password'
+						+ ' VALUES(@FBID,@UserPhone,@UserName,0,@Password)'
 					);
 
 				console.log(queryResult); // Debug to see
@@ -796,6 +797,40 @@ router.get('/size', async (req, res, next) => {
 		} else {
 			res.send(JSON.stringify({ success: false, message: "Missing foodId in query" }));
 		}
+	}
+})
+
+router.post('/foodsize', async (req, res, next) => {
+	console.log(req.body)
+	if (req.body.key != API_KEY) {
+		res.send(JSON.stringify({ success: false, message: "Wrong API key" }));
+	}
+	else {
+		var size_id = req.body.sizeId;
+		var food_id = req.body.foodId;
+
+			try {
+			const pool = await poolPromise
+			const queryResult = await pool.request()
+				.input('SizeId', sql.Int, size_id)
+				.input('FoodId', sql.Int, food_id)
+				.query(''
+					+ ' INSERT INTO [Food_Size](FoodId,SizeId) OUTPUT Inserted.FoodId, Inserted.SizeId'
+					+ ' VALUES(@FoodId,@SizeId)'
+				);
+
+			console.log(queryResult); // Debug to see
+
+			if (queryResult.rowsAffected != null) {
+				res.send(JSON.stringify({ success: true, message: "Success" }))
+			}
+
+		}
+		catch (err) {
+			res.status(500) // Internal Server Error
+			res.send(JSON.stringify({ success: false, message: err.message }))
+		}
+		
 	}
 })
 
