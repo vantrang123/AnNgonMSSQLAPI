@@ -1211,7 +1211,6 @@ router.post('/createOrder', async (req, res, next) => {
 						+ 'SELECT TOP 1 OrderId as orderNumber FROM [Order] WHERE OrderFBID=@OrderFBID ORDER BY orderNumber DESC'
 					);
 
-
 				if (queryResult.recordset.length > 0) {
 					res.send(JSON.stringify({ success: true, result: queryResult.recordset }))
 				} else {
@@ -1459,6 +1458,243 @@ router.delete('/favorite', async (req, res, next) => {
 		}
 		else {
 			res.send(JSON.stringify({ success: false, message: "Missing fbid in query" }));
+		}
+	}
+})
+
+//=============
+// SHIPPER TABLE
+// POST  / GET
+//=============
+router.get('/shipper', async (req, res, next) => {
+	console.log(req.query);
+	if (req.query.key != API_KEY) {
+		res.end(JSON.stringify({ success: false, message: "Wrong API key" }));
+	} else {
+		var userPhone = req.query.userPhone;
+		var password = req.query.password;
+		if (userPhone != null && password != null) {
+			try {
+				const pool = await poolPromise
+				const queryResult = await pool.request()
+					.input('userPhone', sql.NVarChar, userPhone)
+					.input('password', sql.NVarChar, password)
+					.query('SELECT Id,Phone,Name,RestaurantId,Address FROM [Shipper] WHERE Phone=@userPhone AND Password=@password')
+				if (queryResult.recordset.length > 0) {
+					res.end(JSON.stringify({ success: true, result: queryResult.recordset }));
+				} else {
+					res.end(JSON.stringify({ success: false, message: "Empty" }));
+				}
+			}
+			catch (err) {
+				res.status(500) // Internal Server Error
+				res.send(JSON.stringify({ success: false, message: err.message }))
+			}
+		} else {
+			res.end(JSON.stringify({ success: false, message: "Missing in query" }));
+		}
+	}
+})
+
+router.post('/shipper', async (req, res, next) => {
+	console.log(req.body)
+	if (req.body.key != API_KEY) {
+		res.send(JSON.stringify({ success: false, message: "Wrong API key" }));
+	}
+	else {
+		var shipper_phone = req.body.userPhone;
+		var shipper_name = req.body.userName;
+		var shipper_address = req.body.userAddress;
+		var fbid = req.body.fbid;
+		var shipper_password = req.body.userPassword;
+		var restaurantId = req.body.restaurantId;
+
+		if (fbid != null) {
+			try {
+				const pool = await poolPromise
+				const queryResult = await pool.request()
+					.input('UserPhone', sql.NVarChar, shipper_phone)
+					.input('UserName', sql.NVarChar, shipper_name)
+					.input('UserAddress', sql.NVarChar, shipper_address)
+					.input('UserPassword', sql.NVarChar, shipper_password)
+					.input('FBID', sql.NVarChar, fbid)
+					.input('RestaurantId', sql.NVarChar, restaurantId)
+					.query('IF EXISTS(SELECT * FROM [Shipper] WHERE Id=@FBID)'
+						+ ' UPDATE [Shipper] SET Name=@UserName, Address=@UserAddress, Password=@UserPassword WHERE Id=@FBID'
+						+ ' ELSE'
+						+ ' INSERT INTO [Shipper](Id,Phone,Name,RestaurantId,Address,Password) OUTPUT Inserted.Id, Inserted.Phone, Inserted.Name, Inserted.RestaurantId, Inserted.Address, Inserted.Password'
+						+ ' VALUES(@FBID,@UserPhone,@UserName,@RestaurantId,@UserAddress,@UserPassword)'
+					);
+
+				console.log(queryResult); // Debug to see
+
+				if (queryResult.rowsAffected != null) {
+					res.send(JSON.stringify({ success: true, message: "Success" }))
+				}
+
+			}
+			catch (err) {
+				res.status(500) // Internal Server Error
+				res.send(JSON.stringify({ success: false, message: err.message }))
+			}
+		}
+		else {
+			res.send(JSON.stringify({ success: false, message: "Missing fbid in body of POST request" }));
+		}
+	}
+})
+
+//=============
+// SHIPPING ORDER TABLE
+// POST  / GET
+//=============
+router.post('/shippingorder', async (req, res, next) => {
+	console.log(req.body)
+	if (req.body.key != API_KEY) {
+		res.send(JSON.stringify({ success: false, message: "Wrong API key" }));
+	} else {
+		var orderId = req.body.orderId;
+		var restaurantId = req.body.restaurantId;
+		var shipperId = req.body.shipperId;
+		var status = req.body.status;
+		if (orderId != null && restaurantId != null) {
+			try {
+				const pool = await poolPromise
+				const queryResult = await pool.request()
+					.input('OrderId', sql.Int, orderId)
+					.input('RestaurantId', sql.Int, restaurantId)
+					.input('ShipperId', sql.NVarChar, shipperId)
+					.input('Status', sql.Int, status)
+					.query('IF EXISTS(SELECT * FROM [ShippingOrder] WHERE ShipperId=@ShipperId)'
+						+ ' UPDATE [ShippingOrder] SET ShippingStatus=@Status WHERE ShipperId=@ShipperId'
+						+ ' ELSE'
+						+ ' INSERT INTO [ShippingOrder](ShippingStatus,RestaurantId,ShipperId,OrderId)'
+						/*+ ' OUTPUT Inserted.ShippingStatus, Inserted.RestaurantId, Inserted.ShipperId, Inserted.OrderId'*/
+						+ ' VALUES(@Status,@RestaurantId,@ShipperId,@OrderId)'
+						+ 'SELECT TOP 1 Id as orderNumber FROM [ShippingOrder] WHERE OrderId=@OrderId ORDER BY orderNumber DESC'
+					)
+
+				console.log(queryResult); // Debug to see
+
+				if (queryResult.rowsAffected != null) {
+					res.send(JSON.stringify({ success: true, message: "Success" }))
+				}
+			}
+			catch (err) {
+				res.status(500) // Internal Server Error
+				res.send(JSON.stringify({ success: false, message: err.message }))
+			}
+		} else {
+			res.end(JSON.stringify({ success: false, message: "Missing in query" }));
+		}
+	}
+})
+
+router.get('/shippingorderbyshipper', async (req, res, next) => {
+	console.log(req.query);
+	if (req.query.key != API_KEY) {
+		res.end(JSON.stringify({ success: false, message: "Wrong API key" }));
+	}
+	else {
+		var restaurantId = req.query.restaurantId;
+		var shipperId = req.query.shipperId;
+
+		if (restaurantId != null) {
+			try {
+				const pool = await poolPromise
+				const queryResult = await pool.request()
+					.input('RestaurantId', sql.Int, restaurantId)
+					.input('ShipperId', sql.NVarChar, shipperId)
+					.query('SELECT id,shippingStatus,restaurantId,shipperId,orderId FROM [ShippingOrder]'
+					+ ' WHERE RestaurantId=@RestaurantId AND ShipperId=@ShipperId')
+
+				if (queryResult.recordset.length > 0) {
+					res.end(JSON.stringify({ success: true, result: queryResult.recordset }));
+				} else {
+					res.end(JSON.stringify({ success: false, message: "Empty" }));
+				}
+
+			}
+			catch (err) {
+				res.status(500) // Internal Server Error
+				res.send(JSON.stringify({ success: false, message: err.message }))
+			}
+		}
+		else {
+			res.end(JSON.stringify({ success: false, message: "Missing restaurantId in query" }));
+		}
+	}
+})
+
+router.get('/shipperrequestship', async (req, res, next) => {
+	console.log(req.query);
+	if (req.query.key != API_KEY) {
+		res.end(JSON.stringify({ success: false, message: "Wrong API key" }));
+	}
+	else {
+		var restaurantId = req.query.restaurantId;
+		var orderId = req.query.orderId;
+
+		if (restaurantId != null) {
+			try {
+				const pool = await poolPromise
+				const queryResult = await pool.request()
+					.input('RestaurantId', sql.Int, restaurantId)
+					.input('OrderId', sql.NVarChar, orderId)
+					.query('SELECT Id,Phone,Name,RestaurantId,Address FROM [Shipper] WHERE Id IN'
+					+ ' (SELECT shipperId FROM [ShippingOrder]'
+					+ ' WHERE RestaurantId=@RestaurantId AND shippingStatus!=0 AND orderId=@OrderId)')
+					
+
+				if (queryResult.recordset.length > 0) {
+					res.end(JSON.stringify({ success: true, result: queryResult.recordset }));
+				} else {
+					res.end(JSON.stringify({ success: false, message: "Empty" }));
+				}
+
+			}
+			catch (err) {
+				res.status(500) // Internal Server Error
+				res.send(JSON.stringify({ success: false, message: err.message }))
+			}
+		}
+		else {
+			res.end(JSON.stringify({ success: false, message: "Missing restaurantId in query" }));
+		}
+	}
+})
+
+router.get('/orderneedship', async (req, res, next) => {
+	console.log(req.query);
+	if (req.query.key != API_KEY) {
+		res.end(JSON.stringify({ success: false, message: "Wrong API key" }));
+	}
+	else {
+		var restaurantId = req.query.restaurantId;
+
+		if (restaurantId != null) {
+			try {
+				const pool = await poolPromise
+				const queryResult = await pool.request()
+					.input('RestaurantId', sql.Int, restaurantId)
+					.query('SELECT orderId,orderFBID,orderPhone,orderName,orderAddress,orderStatus'
+						+ ',orderDate,transactionId,cod,totalPrice,numOfItem,restaurantId FROM [Order] WHERE orderId IN'
+					+ ' (SELECT OrderId FROM [ShippingOrder] WHERE restaurantId=@RestaurantId)')
+
+				if (queryResult.recordset.length > 0) {
+					res.end(JSON.stringify({ success: true, result: queryResult.recordset }));
+				} else {
+					res.end(JSON.stringify({ success: false, message: "Empty" }));
+				}
+
+			}
+			catch (err) {
+				res.status(500) // Internal Server Error
+				res.send(JSON.stringify({ success: false, message: err.message }))
+			}
+		}
+		else {
+			res.end(JSON.stringify({ success: false, message: "Missing restaurantId in query" }));
 		}
 	}
 })
