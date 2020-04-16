@@ -1565,7 +1565,7 @@ router.post('/shippingorder', async (req, res, next) => {
 					.input('RestaurantId', sql.Int, restaurantId)
 					.input('ShipperId', sql.NVarChar, shipperId)
 					.input('Status', sql.Int, status)
-					.query('IF EXISTS(SELECT * FROM [ShippingOrder] WHERE ShipperId=@ShipperId)'
+					.query('IF EXISTS(SELECT * FROM [ShippingOrder] WHERE ShipperId=@ShipperId AND OrderId=@OrderId)'
 						+ ' UPDATE [ShippingOrder] SET ShippingStatus=@Status WHERE ShipperId=@ShipperId'
 						+ ' ELSE'
 						+ ' INSERT INTO [ShippingOrder](ShippingStatus,RestaurantId,ShipperId,OrderId)'
@@ -1644,6 +1644,42 @@ router.get('/shipperrequestship', async (req, res, next) => {
 					.query('SELECT Id,Phone,Name,RestaurantId,Address FROM [Shipper] WHERE Id IN'
 					+ ' (SELECT shipperId FROM [ShippingOrder]'
 					+ ' WHERE RestaurantId=@RestaurantId AND shippingStatus!=0 AND orderId=@OrderId)')
+					
+				if (queryResult.recordset.length > 0) {
+					res.end(JSON.stringify({ success: true, result: queryResult.recordset }));
+				} else {
+					res.end(JSON.stringify({ success: false, message: "Empty" }));
+				}
+
+			}
+			catch (err) {
+				res.status(500) // Internal Server Error
+				res.send(JSON.stringify({ success: false, message: err.message }))
+			}
+		}
+		else {
+			res.end(JSON.stringify({ success: false, message: "Missing restaurantId in query" }));
+		}
+	}
+})
+
+router.get('/shippingorder', async (req, res, next) => {
+	console.log(req.query);
+	if (req.query.key != API_KEY) {
+		res.end(JSON.stringify({ success: false, message: "Wrong API key" }));
+	}
+	else {
+		var restaurantId = req.query.restaurantId;
+		var orderId = req.query.orderId;
+
+		if (restaurantId != null) {
+			try {
+				const pool = await poolPromise
+				const queryResult = await pool.request()
+					.input('RestaurantId', sql.Int, restaurantId)
+					.input('OrderId', sql.NVarChar, orderId)
+					.query('SELECT shipperId,shippingStatus FROM [ShippingOrder]'
+					+ ' WHERE RestaurantId=@RestaurantId AND shippingStatus!=0 AND orderId=@OrderId')
 					
 
 				if (queryResult.recordset.length > 0) {
